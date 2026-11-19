@@ -17,7 +17,8 @@ button,select,input{font:inherit;color:inherit}
 #st{margin-left:.8rem;color:var(--dim);font-size:.9rem}
 .layer{background:var(--panel);border-left:5px solid var(--c);padding:12px 14px;margin:14px 0 0;border-radius:0 8px 8px 0}
 .layer h2{font-size:1.05rem;margin:0;display:flex;justify-content:space-between;gap:8px}
-.layer h2 span{color:var(--c);font-weight:400}
+.now{color:var(--c);font-weight:400}.r{display:flex;gap:8px;align-items:center}
+.i{background:none;border:1px solid var(--c);color:var(--c);border-radius:50%;width:1.6rem;height:1.6rem;font:italic 700 .9rem Georgia,serif;cursor:pointer;padding:0}
 .row{display:flex;gap:10px;align-items:center;margin-top:8px}
 select,input[type=text]{background:#111827;border:1px solid var(--line);border-radius:6px;padding:.35rem .5rem}
 input[type=range]{flex:1;accent-color:var(--c)}
@@ -28,6 +29,13 @@ input[type=range]{flex:1;accent-color:var(--c)}
 #tx{width:100%;margin-top:8px}
 #lg{color:var(--dim);font-size:.92rem;min-height:1.4rem}
 :focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.mo{background:none;border:0;color:var(--brass);cursor:pointer;padding:0;text-decoration:underline}
+dialog{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;max-width:560px;width:calc(100% - 24px);max-height:82vh;padding:0}
+dialog::backdrop{background:#000b}
+.dh{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+.db{padding:4px 16px 16px}.db .nt{color:var(--dim);font-size:.9rem}
+.nt{margin:.3rem 0;color:var(--dim);font-size:.9rem}
+.it{padding:9px 0;border-bottom:1px solid var(--line)}.it p{margin:.15rem 0;font-size:.92rem;color:var(--dim)}
 </style>
 </head>
 <body>
@@ -38,8 +46,13 @@ input[type=range]{flex:1;accent-color:var(--c)}
 <div id="layers"></div>
 <div class="box"><h3>What it hears</h3><div id="tr"><i>Nothing yet.</i></div>
 <input id="tx" type="text" placeholder="Or type a line to test, then press Enter" aria-label="Test line"></div>
+<div class="box"><h3>Sound sources</h3>
+<p class="nt">Status: <b id="ss">built-in synth</b>. For real recordings of taverns, markets, ships and more, add a free <a href="https://freesound.org/apiv2/apply" target="_blank" rel="noopener" style="color:var(--brass)">Freesound API key</a>. It only searches CC0 sounds and stays in this browser.</p>
+<div class="row"><input type="text" id="fk" placeholder="Freesound API key" aria-label="Freesound API key" style="flex:1"><button class="mo" id="fs">Save</button></div>
+<p class="nt" id="cr"></p></div>
 <div class="box"><h3>Recent effects</h3><div id="lg">–</div></div>
 </main>
+<dialog id="dlg"><div class="dh"><b id="dt"></b><button class="mo" id="dx">Close</button></div><div class="db" id="db"></div></dialog>
 <script>
 const $=id=>document.getElementById(id), R=(a,b)=>a+Math.random()*(b-a);
 let ac,nb,running=false,rec;
@@ -97,32 +110,80 @@ const SFX={
   magic(d){for(let i=0;i<7;i++)tone(900*2**(i/5)*R(.98,1.02),.5,'triangle',.07,d,i*.07)},
   drip(d,v=1){[0,.3,.6].forEach((at,i)=>tone([1500,800],.1,'sine',[.1,.04,.02][i]*v,d,at))},
   clink(d){tone(R(2000,2600),.25,'sine',.06,d);tone(R(3200,3800),.15,'sine',.03,d)},
-  pop(d){burst(.03,'highpass',R(1500,4000),1,.15,d)}
+  pop(d){burst(.03,'highpass',R(1500,4000),1,.15,d)},
+  fire(d){burst(1.5,'bandpass',600,.5,.6,d,0,2500);burst(1.2,'lowpass',400,.7,.4,d,.2)},
+  ice(d){for(let i=0;i<8;i++)tone(R(3500,6000),.3,'sine',.05,d,i*.03);burst(.4,'highpass',5000,1,.2,d)},
+  heal(d){[0,4,7,12,16].forEach((s,i)=>tone(523*2**(s/12),1.2,'sine',.08,d,i*.12))},
+  curse(d){tone([220,110,80],1.8,'sawtooth',.07,d);tone([233,117,83],1.8,'sawtooth',.05,d)},
+  teleport(d){burst(.5,'bandpass',400,2,.4,d,0,6000);for(let i=0;i<5;i++)tone(R(1500,4000),.2,'triangle',.05,d,.4+i*.05)},
+  trap(d){burst(.03,'highpass',2000,1,.5,d);tone([300,150],.2,'square',.08,d,.05);burst(.2,'bandpass',1500,3,.3,d,.2)},
+  lock(d){[0,.15,.4].forEach(at=>burst(.03,'highpass',2500,2,.4,d,at));tone(180,.15,'square',.06,d,.4)},
+  ghost(d){tone([500,900,600,300],2.5,'sine',.1,d);tone([505,905,605,305],2.5,'sine',.08,d)},
+  groan(d){tone([90,70,80,50],1.8,'sawtooth',.08,d);burst(1.8,'bandpass',250,2,.2,d,0,150)},
+  rocks(d){for(let i=0;i<14;i++)burst(R(.1,.3),'lowpass',R(200,700),1,.4,d,i*R(.05,.15))},
+  wind(d){burst(3,'bandpass',300,1,.5,d,0,900)},
+  owl(d){tone([400,330],.4,'sine',.1,d);tone([400,330],.5,'sine',.1,d,.6)},
+  horn(d){tone([220,233],1.8,'sawtooth',.1,d);tone([330,349],1.8,'sawtooth',.05,d)},
+  applause(d){for(let i=0;i<60;i++)burst(.05,'bandpass',R(1500,4000),1,.12,d,R(0,2.5))},
+  gasp(d){burst(.5,'bandpass',1500,1,.3,d,0,3000)},
+  dice(d){for(let i=0;i<9;i++)burst(.04,'bandpass',R(2000,4000),3,.25,d,i*i*.012)},
+  potion(d){for(let i=0;i<10;i++)tone([R(300,500),R(700,1000)],.1,'sine',.07,d,R(0,1.5))},
+  chains(d){for(let i=0;i<10;i++)burst(.06,'bandpass',R(3000,6000),4,.2,d,R(0,1))},
+  crash(d){burst(.9,'highpass',2000,.5,.6,d,0,500);burst(.5,'lowpass',500,1,.6,d)},
+  scream(d){tone([900,1600,1400,1000],1.2,'sawtooth',.05,d);tone([910,1620,1420,1010],1.2,'square',.025,d)},
+  fall(d){burst(.2,'lowpass',250,1,.9,d);tone([100,40],.25,'sine',.6,d)},
+  fanfare(d){[[392,0,.3],[392,.2,.3],[523,.4,.3],[659,.6,.3],[784,.8,1]].forEach(([f,at,du])=>tone(f,du,'sawtooth',.06,d,at))},
+  whisper(d){burst(1.4,'bandpass',4000,.8,.25,d,0,2500)}
 };
 const FX=[
- ['bird',/\b(birds?|chirp\w*|tweet\w*|songbirds?)\b/g],
- ['clang',/\b(clash\w*|clang\w*|parr(?:y|ies|ied)|shields?|deflect\w*)\b/g],
- ['draw',/\b(draws?|drew|unsheath\w*)\b.{0,20}\b(sword|blade|dagger|steel)|\b(sword|blade) is drawn/g],
- ['hit',/\b(punch\w*|hits?|strikes?|struck|slash\w*|stabs?|smash\w*)\b/g],
- ['door',/\b(doors?|creak\w*|hinges?|gates?)\b/g],
- ['thunder',/\b(thunder\w*|lightning)\b/g],
- ['boom',/\b(explo\w*|fireball|blast\w*|detonat\w*|boom\w*)\b/g],
- ['laugh',/\b(laugh\w*|chuckl\w*|giggl\w*|cackl\w*|guffaw\w*|snicker\w*|crowd (?:roars|cheers))\b/g],
- ['steps',/\b(footsteps?|sneaks?|creeps?|approach\w*)\b/g],
- ['gallop',/\b(gallop\w*|hooves?|horses?)\b/g],
- ['coins',/\b(coins?|gold|purse|jingl\w*)\b/g],
- ['roar',/\b(roars?|roared|growls?|snarls?)\b(?! with laughter)/g],
- ['arrow',/\b(arrows?|bowstring|twang\w*|crossbow)\b/g],
- ['splash',/\b(splash\w*|plunge\w*|overboard)\b/g],
- ['bell',/\b(bells?|chimes?|tolls?)\b/g],
- ['knock',/\b(knocks?|knocked|knocking)\b/g],
- ['wolf',/\b(wolf|wolves|howl\w*)\b/g],
- ['magic',/\b(spells?|magic\w*|arcane|enchant\w*|casts?|sparkl\w*)\b/g]
+ ['bird','Bird chirps','bird,chirp,tweet,songbird,sparrow,raven,crows,caw'],
+ ['gull','Seagull cry','seagull,gull'],
+ ['clang','Steel clash','clash,clang,parry,parried,shield,deflect,steel meets'],
+ ['draw','Sword drawn','draws his sword,draws her sword,draw your sword,draws a blade,draws a dagger,unsheath,draw steel'],
+ ['hit','Blow landing','hits,punch,strike,struck,slash,stabs,stabbed,smash,bludgeon'],
+ ['arrow','Arrow shot','arrow,bowstring,twang,crossbow,quiver'],
+ ['door','Door creak','door,creak,hinge,gate,portcullis,drawbridge'],
+ ['knock','Knocking','knock'],
+ ['lock','Lock and chest','lock,unlock,lockpick,padlock,chest,latch'],
+ ['trap','Trap triggered','trap,tripwire,pressure plate,snaps shut,spring-loaded'],
+ ['thunder','Thunder','thunder,lightning,thunderclap'],
+ ['boom','Explosion','explo,fireball,blast,detonat,boom,shockwave'],
+ ['fire','Flames whoosh','flames,fire breath,burn,torch,ignite,inferno,scorch,set ablaze,firebolt'],
+ ['ice','Ice and frost','ice,frost,freeze,frozen,icy,chill,cone of cold'],
+ ['magic','Spell sparkle','spell,magic,arcane,enchant,casts,casting,sparkle,glow'],
+ ['heal','Healing chime','heal,cure wounds,restore,regain hit,mend,revive,lay on hands'],
+ ['curse','Dark curse','curse,hex,necrotic,withers,dark magic'],
+ ['teleport','Teleport','teleport,portal,blink,misty step,vanish,dimension door,disappears'],
+ ['potion','Potion bubbling','potion,brew,cauldron,bubbl,elixir,alchem,concoction'],
+ ['roar','Monster roar','growl,snarl,bellow,dragon roar,beast roars,monster roars'],
+ ['wolf','Wolf howl','wolf,wolves,howl'],
+ ['owl','Owl hoot','owl,hoot'],
+ ['ghost','Ghostly wail','ghost,wail,banshee,specter,spectre,phantom,moan,haunt,wraith'],
+ ['groan','Undead groan','zombie,undead,skeleton,ghoul,groan,shamble,mummy,wight'],
+ ['whisper','Whispers','whisper,murmur,hiss,muttered,under their breath'],
+ ['scream','Scream','scream,shriek,screech,yell,shout'],
+ ['gasp','Crowd gasp','gasp,stunned,aghast,shocked'],
+ ['laugh','Laughter','laugh,chuckle,giggle,cackle,guffaw,snicker,chortle,crowd roars with'],
+ ['applause','Applause and cheers','applau,clap,cheer,ovation,crowd goes wild,whoop'],
+ ['steps','Footsteps','footstep,sneak,creeps,creeping,tiptoe,approach'],
+ ['gallop','Galloping horse','gallop,hooves,hoofbeats,horse,stampede'],
+ ['coins','Coins jingling','coins,a coin,jingle,gold pieces,purse,gold'],
+ ['splash','Splash','splash,plunge,overboard,dives into,jumps into the water'],
+ ['bell','Bell toll','bells,a bell,chime,toll,gong'],
+ ['horn','War horn','war horn,warhorn,bugle,horn sounds,horn blows,sounds a horn,blows a horn'],
+ ['fanfare','Royal fanfare','fanfare,trumpet,herald,coronation,royal court,proclaim'],
+ ['dice','Dice roll','dice,d20,roll,natural twenty,natural 20,nat 20,critical hit,critical fail,initiative'],
+ ['crash','Crash and shatter','crash,shatter,smashes through,breaks down,splinter,glass breaks,topple'],
+ ['fall','Heavy fall','falls,fell,collapses,drops dead,thud,tumbles,plummet'],
+ ['rocks','Rockfall','rockfall,rocks fall,rocks tumble,avalanche,landslide,cave-in,rubble,crumble'],
+ ['wind','Wind gust','gust,howling wind,wind whips,wind rushes,blizzard,gale'],
+ ['chains','Rattling chains','chain,shackle,manacle,rattle,fetter,prison']
 ];
+const FXR=FX.map(([n,,w])=>[n,new RegExp('\\b(?:'+w.split(',').join('|')+')','g')]);
 let fired=new Set(),last={};
 function fx(t){
   if(!ac)return;
-  for(const [n,rx] of FX)for(const m of t.matchAll(rx)){
+  for(const [n,rx] of FXR)for(const m of t.matchAll(rx)){
     const key=n+m.index;if(fired.has(key))continue;fired.add(key);
     if(Date.now()-(last[n]||0)<3000)continue;
     last[n]=Date.now();SFX[n]();
@@ -145,35 +206,91 @@ const AMB={
  camp(k){bn(k,'lowpass',150,.3,.05);bn(k,'bandpass',4500,20,.1,18,.08);k.rnd(()=>SFX.pop(k.out),120,600)},
  mountain(k){bn(k,'bandpass',350,.8,.5,.08,.3);bn(k,'bandpass',900,2,.2,.13,.15);k.rnd(()=>SFX.wolf(k.out),30000,60000)}
 };
-const mkAmb=key=>{const k=kit(bus.amb);AMB[key](k);return k};
+const mkAmb=key=>{const k=kit(bus.amb);sampled('amb',key,k).then(ok=>{if(!ok&&!k.dead)AMB[key](k)});return k};
 
-/* ---------- layer 1: mood music ---------- */
-const STEP={
- arp:(m,o)=>tone(m.root*2**((m.ch[Math.floor(R(0,m.ch.length))]+12)/12),.5,'triangle',.07,o),
- drum:(m,o)=>{tone([110,45],.25,'sine',.5,o);burst(.1,'lowpass',300,1,.2,o)},
- heart:(m,o)=>{tone([60,40],.15,'sine',.5,o);tone([60,40],.15,'sine',.4,o,.18)},
- bell:(m,o)=>tone(m.root*2**((m.ch[Math.floor(R(0,m.ch.length))]+24)/12),3,'sine',.05,o)
-};
-const MOODS={
- calm:{root:110,ch:[0,7,12,16,19],wave:'sine',cut:900,lfo:.1},
- joyful:{root:131,ch:[0,4,7,12],wave:'triangle',cut:2500,lfo:.2,step:'arp',every:420},
- sad:{root:110,ch:[0,3,7,10],wave:'triangle',cut:700,lfo:.07},
- tense:{root:73,ch:[0,1,6,7],wave:'sawtooth',cut:500,lfo:.3,step:'heart',every:900},
- eerie:{root:98,ch:[0,3,6,9,15],wave:'sine',cut:1800,lfo:.15,step:'bell',every:3500},
- dramatic:{root:73,ch:[0,7,12,15,19],wave:'sawtooth',cut:1100,lfo:.12,step:'drum',every:2400},
- battle:{root:65,ch:[0,7,12],wave:'sawtooth',cut:1400,lfo:.5,step:'drum',every:480}
-};
-function mkMusic(key){
-  const m=MOODS[key],k=kit(bus.music),f=ac.createBiquadFilter();
-  f.type='lowpass';f.frequency.value=m.cut;f.Q.value=2;f.connect(k.out);
-  m.ch.forEach(st=>[-6,6].forEach(dt=>{
-    const o=ac.createOscillator();o.type=m.wave;o.frequency.value=m.root*2**(st/12);o.detune.value=dt;
-    o.connect(gain(.3/m.ch.length)).connect(f);o.start();k.srcs.push(o);
-  }));
-  const l=ac.createOscillator();l.frequency.value=m.lfo;l.connect(gain(m.cut*.4)).connect(f.frequency);l.start();k.srcs.push(l);
-  if(m.step)k.rnd(()=>STEP[m.step](m,k.out),m.every,m.every);
-  return k;
+/* ---------- real recordings: local files, then Freesound (CC0), then synth ---------- */
+const LOCAL={amb:{},music:{}}; // optional: drop files in your repo, e.g. amb:{tavern:['audio/tavern.ogg']}, music:{calm:['audio/calm1.mp3','audio/calm2.mp3']}
+const Q={amb:{
+ tavern:['tavern crowd chatter ambience','pub murmur glasses'],market:['medieval market crowd ambience','market vendors shouting crowd'],
+ forest:['forest ambience birds','forest wind leaves'],cave:['cave water drips ambience','cave echo wind drone'],
+ combat:['battle sword clashing crowd','medieval battle shouting'],sea:['ocean waves ship ambience','wooden ship creaking'],
+ storm:['rain thunderstorm ambience','heavy wind rain'],camp:['campfire crackling','night crickets ambience'],mountain:['mountain wind howling','wind blizzard ambience']},
+ music:{calm:['calm peaceful fantasy ambient music'],joyful:['happy medieval folk tavern music'],sad:['sad melancholy piano strings'],
+ tense:['tense suspense dark ambient'],eerie:['eerie creepy horror ambient'],dramatic:['epic dramatic orchestral cinematic'],battle:['epic battle drums orchestral action']}};
+const getKey=()=>{try{return localStorage.getItem('fsk')||''}catch(e){return''}};
+let fsCache={};
+function fsFind(q,kind){
+  const key=getKey();if(!key)return Promise.resolve([]);
+  return fsCache[q]||(fsCache[q]=(async()=>{try{
+    const u='https://freesound.org/apiv2/search/text/?'+new URLSearchParams({query:q,
+      filter:'license:"Creative Commons 0" duration:'+(kind==='music'?'[40 TO 400]':'[20 TO 300]'),
+      fields:'id,name,username,previews',page_size:15,token:key});
+    const r=await fetch(u);if(!r.ok)throw 0;
+    return (await r.json()).results.map(x=>({url:x.previews['preview-hq-mp3'],name:x.name,user:x.username}));
+  }catch(e){return[]}})());
 }
+const buf=async u=>{try{const r=await fetch(u);return await ac.decodeAudioData(await r.arrayBuffer())}catch(e){return null}};
+const credit=it=>{const e=$('cr'),t=it.name+(it.user?' by '+it.user:'');if(!e.textContent.includes(t))e.textContent+=(e.textContent?'; ':'Recordings in use (CC0): ')+t};
+async function sampled(kind,key,k){
+  const loc=LOCAL[kind][key];let groups=[];
+  if(loc&&loc.length)groups=[loc.map(u=>({url:u,name:u}))];
+  else for(const q of Q[kind][key]){const r=await fsFind(q,kind);if(r.length)groups.push(r)}
+  let ok=false;
+  if(groups.length&&!k.dead){
+    if(kind==='amb'){
+      for(const [i,g] of groups.entries()){
+        const it=g[Math.floor(R(0,Math.min(8,g.length)))],b=await buf(it.url);if(!b||k.dead)continue;
+        const s=ac.createBufferSource();s.buffer=b;s.loop=true;s.connect(gain(i?.7:1)).connect(k.out);
+        s.start(0,R(0,b.duration*.8));k.srcs.push(s);credit(it);ok=true;
+      }
+    }else{
+      const list=[...groups[0]].sort(()=>Math.random()-.5);let i=0;
+      const play=async()=>{for(let n=0;n<list.length;n++){
+        if(k.dead)return false;const it=list[i++%list.length],b=await buf(it.url);if(!b)continue;if(k.dead)return false;
+        const s=ac.createBufferSource(),g=ac.createGain(),t=ac.currentTime,d=b.duration;
+        s.buffer=b;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(1,t+3);g.gain.setValueAtTime(1,t+d-3);g.gain.linearRampToValueAtTime(0,t+d);
+        s.connect(g).connect(k.out);s.start();k.srcs.push(s);credit(it);s.onended=play;return true}return false};
+      ok=await play();
+    }
+  }
+  if(!k.dead&&getKey())$('ss').textContent=ok?'playing real recordings':'no recordings found, using built-in synth';
+  return ok;
+}
+
+/* ---------- layer 1: generative mood music (fallback when no recordings) ---------- */
+function padv(f,dur,type,v,d){const t=ac.currentTime;[-7,7].forEach(c=>{const o=ac.createOscillator(),g=ac.createGain();
+  o.type=type;o.frequency.value=f;o.detune.value=c;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+dur*.4);g.gain.linearRampToValueAtTime(0,t+dur);
+  o.connect(g).connect(d);o.start(t);o.stop(t+dur+.1)})}
+const nt=(m,d,o=0)=>{const n=m.sc.length,w=Math.floor(d/n);return m.root*2**((m.sc[d-w*n]+12*(w+o))/12)};
+const GEN={
+ calm:{root:196,sc:[0,2,4,7,9],progs:[[0,3,1,4],[0,2,4,2]],bpm:56,pad:'sine',pv:.05,bv:.12,cut:1800,lead:'sine',dens:.3,nl:2,lv:.07,lo:1,perc:'........'},
+ joyful:{root:262,sc:[0,2,4,5,7,9,11],progs:[[0,3,4,0],[0,4,5,3],[0,5,3,4]],bpm:120,pad:'triangle',pv:.04,bv:.15,cut:3500,lead:'triangle',dens:.7,nl:.3,lv:.09,lo:1,perc:'x.h.x.h.'},
+ sad:{root:174,sc:[0,2,3,5,7,8,10],progs:[[0,5,3,4],[0,3,5,4]],bpm:50,pad:'triangle',pv:.05,bv:.12,cut:1200,lead:'sine',dens:.22,nl:2.5,lv:.07,lo:1,perc:'........'},
+ tense:{root:98,sc:[0,1,3,5,7,8,10],progs:[[0,0,1,0],[0,1,0,5]],bpm:84,pad:'sawtooth',pv:.025,bv:.15,cut:500,lead:'sawtooth',dens:.1,nl:.8,lv:.03,lo:2,perc:'x..x....'},
+ eerie:{root:147,sc:[0,2,4,6,8,10],progs:[[0,1,3,2],[0,3,1,4]],bpm:48,pad:'sine',pv:.05,bv:.08,cut:2200,lead:'sine',dens:.18,nl:3.5,lv:.05,lo:2,perc:'........'},
+ dramatic:{root:98,sc:[0,2,3,5,7,8,11],progs:[[0,5,6,4],[0,3,4,0]],bpm:70,pad:'sawtooth',pv:.03,bv:.2,cut:1100,lead:'sawtooth',dens:.3,nl:1,lv:.04,lo:1,perc:'x.....x.'},
+ battle:{root:82,sc:[0,2,3,5,7,8,10],progs:[[0,0,5,4],[0,6,5,4]],bpm:150,pad:'sawtooth',pv:.03,bv:.14,cut:1600,lead:'sawtooth',dens:.45,nl:.2,lv:.04,lo:1,perc:'x.sx.sxs',b8:1}
+};
+function genMusic(key,k){
+  const m=GEN[key],f=ac.createBiquadFilter(),st=60/m.bpm/2,bar=st*8;
+  f.type='lowpass';f.frequency.value=m.cut;f.connect(k.out);
+  let i=0,prog=m.progs[0],mel=5;
+  const tick=()=>{if(k.dead)return;
+    const b=i%8,bi=Math.floor(i/8),c=prog[bi%prog.length];
+    if(b===0){
+      if(bi%prog.length===0)prog=m.progs[Math.floor(R(0,m.progs.length))];
+      [0,2,4].forEach(x=>padv(nt(m,c+x),bar*1.2,m.pad,m.pv,f));
+      if(!m.b8)tone(nt(m,c,-2),bar,'sine',m.bv,f);
+      mel=c+[0,2,4][Math.floor(R(0,3))]+3;
+    }
+    if(m.b8&&b%2===0)tone(nt(m,c,-2),st*1.8,'sawtooth',m.bv,f);
+    if(Math.random()<m.dens){mel=Math.max(0,Math.min(11,mel+[-2,-1,-1,1,1,2][Math.floor(R(0,6))]));tone(nt(m,mel,m.lo-1),m.nl,m.lead,m.lv,f)}
+    const p=m.perc[b];
+    if(p==='x')tone([120,45],.2,'sine',.45,k.out);else if(p==='h')burst(.05,'highpass',7000,1,.07,k.out);else if(p==='s')burst(.12,'bandpass',1800,1,.2,k.out);
+    i++;setTimeout(tick,st*1000);
+  };tick();
+}
+const mkMusic=key=>{const k=kit(bus.music);sampled('music',key,k).then(ok=>{if(!ok&&!k.dead)genMusic(key,k)});return k};
 
 /* ---------- semantic analysis (keyword lexicons with decay) ---------- */
 const MOOD={
@@ -211,13 +328,13 @@ function analyse(t){
     decide(n);
   }
 }
-function decide(n){
+function decide(n,force){
   let key=sel[n];
   if(key==='auto'){
     const s=SC[n],best=Object.keys(s).sort((a,b)=>s[b]-s[a])[0],c=cur[n];
     key=best&&s[best]>=1&&(!c||s[best]>(s[c]||0)*1.3)?best:c;
   }
-  if(!ac||key===cur[n])return;
+  if(!ac||(key===cur[n]&&!force))return;
   cur[n]=key;
   const old=obj[n];
   if(old){old.out.gain.setTargetAtTime(0,ac.currentTime,1.2);setTimeout(()=>old.stop(),7000)}
@@ -276,13 +393,42 @@ const LAYERS=[
  ['fx','Sound effects','var(--ember)',null]
 ];
 $('layers').innerHTML=LAYERS.map(([n,t,c,o])=>`
- <div class="layer" style="--c:${c}"><h2>${t}<span id="${n}-now">${o?'–':'on cue'}</span></h2>
+ <div class="layer" style="--c:${c}"><h2>${t}<div class="r"><span class="now" id="${n}-now">${o?'–':'on cue'}</span><button class="i" data-n="${n}" aria-label="About ${t}">i</button></div></h2>
  <div class="row">${o?`<select id="${n}-sel" aria-label="${t}"><option value="auto">Auto</option>${Object.keys(o).map(k=>`<option value="${k}">${NAMES[k]}</option>`).join('')}</select>`:''}
  <input type="range" id="${n}-vol" min="0" max="1" step=".01" value="${vol[n]}" aria-label="${t} volume"></div></div>`).join('');
 LAYERS.forEach(([n,,,o])=>{
   $(n+'-vol').oninput=e=>{vol[n]=+e.target.value;if(bus[n])bus[n].gain.value=vol[n]};
   if(o)$(n+'-sel').onchange=e=>{sel[n]=e.target.value;decide(n)};
 });
+$('fk').value=getKey();
+$('fs').onclick=()=>{try{localStorage.setItem('fsk',$('fk').value.trim())}catch(e){}
+  fsCache={};$('cr').textContent='';$('ss').textContent=getKey()?'searching Freesound…':'built-in synth';
+  if(running)['music','amb'].forEach(n=>{if(cur[n])decide(n,true)})};
+/* ---------- info popups ---------- */
+const DESC={
+ calm:'Soft, slow pad in a warm major key',joyful:'Bright, bouncing plucks over a light pad',sad:'Slow minor chords, muted and low',
+ tense:'Dissonant drone with a creeping heartbeat',eerie:'Hollow diminished chords with distant bells',dramatic:'Heavy low pad with slow war drums',
+ battle:'Driving low power chord with fast drums',tavern:'Crowd murmur, clinking mugs, hearth crackle, bursts of laughter',
+ market:'Busy chatter, jingling coins, distant bells',forest:'Rustling leaves, wind and birdsong',cave:'Deep rumble and echoing drips',
+ combat:'Shouting crowd, clashing steel, heavy blows',sea:'Rolling waves, spray and gulls',storm:'Rain, gusting wind, rolling thunder',
+ camp:'Crackling fire, crickets, soft night air',mountain:'Thin wind, with the odd wolf howl'
+};
+const row=(l,d,w)=>{const a=w.slice(0,6),b=w.slice(6);
+  return `<div class="it"><b>${l}</b>${d?`<p>${d}</p>`:''}<p>Triggers: ${a.join(', ')}${b.length?`<span hidden>, ${b.join(', ')}</span> <button class="mo">show more</button>`:''}</p></div>`};
+function info(n){
+  const note='<p class="nt">Words match from their beginning, so “celebrat” catches celebrate, celebrated and celebration.</p>';
+  let t,h;
+  if(n==='fx'){t=`Sound effects (${FX.length})`;
+    h=note+'<p class="nt">Each fires as soon as a trigger word is heard, then waits 3 seconds before repeating.</p>'+FX.map(([k,l,w])=>row(l,'',w.split(','))).join('')}
+  else{const o=n==='music'?MOOD:SET;t=n==='music'?'Mood and music':'Setting';
+    h=note+'<p class="nt">With a Freesound key connected, real recordings play instead; the descriptions below are the built-in fallback.</p>'+`<p class="nt">${n==='music'?'The mood with the most recent trigger words wins, and the music crossfades to it.':'The scene with the most recent trigger words wins, and the ambience crossfades to it.'}</p>`+
+      Object.keys(o).map(k=>row(NAMES[k],DESC[k],o[k].split(' '))).join('')}
+  $('dt').textContent=t;$('db').innerHTML=h;$('dlg').showModal();
+}
+document.querySelectorAll('.i').forEach(b=>b.onclick=()=>info(b.dataset.n));
+$('dx').onclick=()=>$('dlg').close();
+$('dlg').onclick=e=>{if(e.target===$('dlg'))$('dlg').close()};
+$('db').onclick=e=>{const b=e.target.closest('.mo');if(!b)return;const s=b.previousElementSibling;s.hidden=!s.hidden;b.textContent=s.hidden?'show more':'show less'};
 </script>
 </body>
 </html>
