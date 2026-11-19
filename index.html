@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Soundweaver – live soundscapes for D&D</title>
+<style>
+:root{--bg:#141a26;--panel:#1c2434;--ink:#ece3d0;--dim:#9aa3b5;--brass:#c9a24d;--moss:#7fa37a;--ember:#d0755a;--line:#2e394f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.55 Georgia,"Iowan Old Style",serif}
+main{max-width:640px;margin:0 auto;padding:22px 16px 60px}
+h1{font-size:2.1rem;margin:0;letter-spacing:.01em;font-weight:600}
+.sub{color:var(--dim);margin:.2rem 0 1.2rem}
+button,select,input{font:inherit;color:inherit}
+#go{background:var(--brass);color:#1a1405;border:0;border-radius:6px;padding:.7rem 1.3rem;font-weight:700;cursor:pointer}
+#go.on{background:var(--ember);color:#fff}
+#st{margin-left:.8rem;color:var(--dim);font-size:.9rem}
+.layer{background:var(--panel);border-left:5px solid var(--c);padding:12px 14px;margin:14px 0 0;border-radius:0 8px 8px 0}
+.layer h2{font-size:1.05rem;margin:0;display:flex;justify-content:space-between;gap:8px}
+.layer h2 span{color:var(--c);font-weight:400}
+.row{display:flex;gap:10px;align-items:center;margin-top:8px}
+select,input[type=text]{background:#111827;border:1px solid var(--line);border-radius:6px;padding:.35rem .5rem}
+input[type=range]{flex:1;accent-color:var(--c)}
+.box{background:var(--panel);border-radius:8px;padding:12px 14px;margin-top:16px}
+.box h3{margin:0 0 6px;font-size:1rem;color:var(--dim);font-weight:400}
+#tr{min-height:3.2rem;max-height:9rem;overflow:auto}
+#tr i{color:var(--dim)}
+#tx{width:100%;margin-top:8px}
+#lg{color:var(--dim);font-size:.92rem;min-height:1.4rem}
+:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+</style>
+</head>
+<body>
+<main>
+<h1>Soundweaver</h1>
+<p class="sub">Live soundscapes for your table, woven from what the DM says. Everything is synthesised in your browser, so there are no audio files to host.</p>
+<button id="go">Begin listening</button><span id="st"></span>
+<div id="layers"></div>
+<div class="box"><h3>What it hears</h3><div id="tr"><i>Nothing yet.</i></div>
+<input id="tx" type="text" placeholder="Or type a line to test, then press Enter" aria-label="Test line"></div>
+<div class="box"><h3>Recent effects</h3><div id="lg">–</div></div>
+</main>
+<script>
+const $=id=>document.getElementById(id), R=(a,b)=>a+Math.random()*(b-a);
+let ac,nb,running=false,rec;
+const bus={},vol={music:.5,amb:.5,fx:.8};
+
+/* ---------- audio primitives ---------- */
+const gain=v=>{const g=ac.createGain();g.gain.value=v;return g};
+function tone(f,dur,type='sine',v=.2,d=bus.fx,at=0){
+  const t=ac.currentTime+at,o=ac.createOscillator(),g=ac.createGain(),a=[].concat(f);
+  o.type=type;o.frequency.setValueAtTime(a[0],t);
+  a.slice(1).forEach((x,i)=>o.frequency.linearRampToValueAtTime(x,t+dur*(i+1)/(a.length-1)));
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(g).connect(d);o.start(t);o.stop(t+dur+.05);
+}
+function burst(dur,type,f,q,v,d=bus.fx,at=0,f2){
+  const t=ac.currentTime+at,s=ac.createBufferSource(),fl=ac.createBiquadFilter(),g=ac.createGain();
+  s.buffer=nb;fl.type=type;fl.Q.value=q;fl.frequency.setValueAtTime(f,t);
+  if(f2)fl.frequency.exponentialRampToValueAtTime(f2,t+dur);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+Math.min(.02,dur/4));g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  s.connect(fl).connect(g).connect(d);s.start(t,Math.random());s.stop(t+dur+.05);
+}
+function kit(b){
+  const k={out:gain(0),srcs:[],dead:false};k.out.connect(b);
+  k.rnd=(fn,a,z)=>{const go=()=>{if(k.dead)return;fn();setTimeout(go,R(a,z))};setTimeout(go,R(a,z)*.3)};
+  k.stop=()=>{k.dead=true;k.srcs.forEach(s=>{try{s.stop()}catch(e){}})};
+  return k;
+}
+function bn(k,type,fr,q,v,lr=0,ld=0){ // looping filtered noise with optional slow swell
+  const s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=gain(v);
+  s.buffer=nb;s.loop=true;f.type=type;f.frequency.value=fr;f.Q.value=q;
+  s.connect(f).connect(g).connect(k.out);s.start(0,Math.random());k.srcs.push(s);
+  if(lr){const o=ac.createOscillator();o.frequency.value=lr;o.connect(gain(ld)).connect(g.gain);o.start();k.srcs.push(o)}
+}
+
+/* ---------- layer 3: targeted effects (synthesised) ---------- */
+const SFX={
+  bird(d){for(let i=0;i<R(2,5);i++)tone([R(2800,3600),R(4000,5200),R(3000,3800)],.12,'sine',.08,d,i*.18)},
+  gull(d){tone([1400,2200,1300],.5,'triangle',.06,d)},
+  clang(d,v=1){[800,1270,2150,3100].forEach((f,i)=>tone(f*R(.95,1.05),.6/(i+1)+.1,'sine',.12*v/(i+1),d));burst(.08,'highpass',3000,1,.2*v,d)},
+  hit(d){burst(.15,'lowpass',500,1,.7,d,0,100);tone([140,60],.15,'sine',.4,d)},
+  draw(d){burst(.6,'highpass',2000,2,.25,d,0,7000)},
+  door(d){tone([95,130,85,110],1,'sawtooth',.05,d)},
+  thunder(d,v=1){burst(3.5,'lowpass',500,.7,.9*v,d,0,50);burst(1,'lowpass',200,1,.6*v,d,.3)},
+  boom(d){burst(1.8,'lowpass',1500,.7,1,d,0,60);tone([80,25],1.2,'sine',.7,d)},
+  laugh(d,v=1){for(let p=0;p<3;p++){const b=R(0,.3),f=R(180,300);for(let i=0;i<5;i++){const at=b+i*.2;tone(f*(1-i*.04),.12,'sawtooth',.03*v,d,at);burst(.12,'bandpass',R(800,1200),2,.1*v,d,at)}}},
+  steps(d){for(let i=0;i<4;i++)burst(.12,'lowpass',R(250,400),1,.5,d,i*.45)},
+  gallop(d){for(let i=0;i<12;i++)burst(.1,'lowpass',R(300,450),1,.4,d,Math.floor(i/3)*.55+[0,.12,.24][i%3])},
+  coins(d){for(let i=0;i<5;i++)tone(R(3000,5000),.25,'sine',.08,d,i*R(.05,.12))},
+  roar(d){tone([100,70,45],2.4,'sawtooth',.25,d);burst(2.4,'bandpass',500,1,.4,d,0,150)},
+  arrow(d){burst(.3,'highpass',1000,1,.3,d,0,5000);burst(.08,'lowpass',400,1,.5,d,.35)},
+  splash(d){burst(.8,'bandpass',1800,.8,.5,d,0,600)},
+  bell(d){[1,2.76,5.4].forEach((m,i)=>tone(440*m,3/(i+1),'sine',.15/(i+1),d))},
+  knock(d){[0,.25,.5].forEach(at=>{tone([180,90],.1,'sine',.6,d,at);burst(.05,'lowpass',800,1,.3,d,at)})},
+  wolf(d){tone([380,700,650,420],3,'sine',.12,d)},
+  magic(d){for(let i=0;i<7;i++)tone(900*2**(i/5)*R(.98,1.02),.5,'triangle',.07,d,i*.07)},
+  drip(d,v=1){[0,.3,.6].forEach((at,i)=>tone([1500,800],.1,'sine',[.1,.04,.02][i]*v,d,at))},
+  clink(d){tone(R(2000,2600),.25,'sine',.06,d);tone(R(3200,3800),.15,'sine',.03,d)},
+  pop(d){burst(.03,'highpass',R(1500,4000),1,.15,d)}
+};
+const FX=[
+ ['bird',/\b(birds?|chirp\w*|tweet\w*|songbirds?)\b/g],
+ ['clang',/\b(clash\w*|clang\w*|parr(?:y|ies|ied)|shields?|deflect\w*)\b/g],
+ ['draw',/\b(draws?|drew|unsheath\w*)\b.{0,20}\b(sword|blade|dagger|steel)|\b(sword|blade) is drawn/g],
+ ['hit',/\b(punch\w*|hits?|strikes?|struck|slash\w*|stabs?|smash\w*)\b/g],
+ ['door',/\b(doors?|creak\w*|hinges?|gates?)\b/g],
+ ['thunder',/\b(thunder\w*|lightning)\b/g],
+ ['boom',/\b(explo\w*|fireball|blast\w*|detonat\w*|boom\w*)\b/g],
+ ['laugh',/\b(laugh\w*|chuckl\w*|giggl\w*|cackl\w*|guffaw\w*|snicker\w*|crowd (?:roars|cheers))\b/g],
+ ['steps',/\b(footsteps?|sneaks?|creeps?|approach\w*)\b/g],
+ ['gallop',/\b(gallop\w*|hooves?|horses?)\b/g],
+ ['coins',/\b(coins?|gold|purse|jingl\w*)\b/g],
+ ['roar',/\b(roars?|roared|growls?|snarls?)\b(?! with laughter)/g],
+ ['arrow',/\b(arrows?|bowstring|twang\w*|crossbow)\b/g],
+ ['splash',/\b(splash\w*|plunge\w*|overboard)\b/g],
+ ['bell',/\b(bells?|chimes?|tolls?)\b/g],
+ ['knock',/\b(knocks?|knocked|knocking)\b/g],
+ ['wolf',/\b(wolf|wolves|howl\w*)\b/g],
+ ['magic',/\b(spells?|magic\w*|arcane|enchant\w*|casts?|sparkl\w*)\b/g]
+];
+let fired=new Set(),last={};
+function fx(t){
+  if(!ac)return;
+  for(const [n,rx] of FX)for(const m of t.matchAll(rx)){
+    const key=n+m.index;if(fired.has(key))continue;fired.add(key);
+    if(Date.now()-(last[n]||0)<3000)continue;
+    last[n]=Date.now();SFX[n]();
+    const l=$('lg');l.textContent=(l.textContent==='–'?'':l.textContent+', ')+n;
+    if(l.textContent.length>120)l.textContent=l.textContent.slice(-90);
+  }
+}
+
+/* ---------- layer 2: setting ambience ---------- */
+const AMB={
+ tavern(k){bn(k,'bandpass',500,.6,.5,.3,.15);bn(k,'bandpass',1100,.8,.25,.5,.1);bn(k,'lowpass',250,.5,.12);
+   k.rnd(()=>SFX.clink(k.out),2500,7000);k.rnd(()=>SFX.laugh(k.out,.4),9000,20000);k.rnd(()=>SFX.pop(k.out),300,1200)},
+ market(k){bn(k,'bandpass',700,.5,.6,.4,.2);bn(k,'bandpass',1800,.7,.2,.7,.1);
+   k.rnd(()=>SFX.coins(k.out),4000,9000);k.rnd(()=>SFX.bell(k.out),20000,40000)},
+ forest(k){bn(k,'bandpass',400,.3,.15,.1,.1);bn(k,'highpass',4000,.5,.05,.05,.03);k.rnd(()=>SFX.bird(k.out),2000,6000)},
+ cave(k){bn(k,'lowpass',120,.5,.5);bn(k,'bandpass',300,3,.04,.05,.03);k.rnd(()=>SFX.drip(k.out),1500,5000)},
+ combat(k){bn(k,'bandpass',900,.5,.4,.8,.2);k.rnd(()=>SFX.clang(k.out,.7),700,2200);k.rnd(()=>SFX.hit(k.out),900,2500)},
+ sea(k){bn(k,'lowpass',500,.5,.6,.12,.4);bn(k,'highpass',3000,.5,.08,.12,.05);k.rnd(()=>SFX.gull(k.out),8000,16000)},
+ storm(k){bn(k,'highpass',1000,.3,.4);bn(k,'lowpass',300,.5,.4,.1,.3);k.rnd(()=>SFX.thunder(k.out,.5),8000,20000)},
+ camp(k){bn(k,'lowpass',150,.3,.05);bn(k,'bandpass',4500,20,.1,18,.08);k.rnd(()=>SFX.pop(k.out),120,600)},
+ mountain(k){bn(k,'bandpass',350,.8,.5,.08,.3);bn(k,'bandpass',900,2,.2,.13,.15);k.rnd(()=>SFX.wolf(k.out),30000,60000)}
+};
+const mkAmb=key=>{const k=kit(bus.amb);AMB[key](k);return k};
+
+/* ---------- layer 1: mood music ---------- */
+const STEP={
+ arp:(m,o)=>tone(m.root*2**((m.ch[Math.floor(R(0,m.ch.length))]+12)/12),.5,'triangle',.07,o),
+ drum:(m,o)=>{tone([110,45],.25,'sine',.5,o);burst(.1,'lowpass',300,1,.2,o)},
+ heart:(m,o)=>{tone([60,40],.15,'sine',.5,o);tone([60,40],.15,'sine',.4,o,.18)},
+ bell:(m,o)=>tone(m.root*2**((m.ch[Math.floor(R(0,m.ch.length))]+24)/12),3,'sine',.05,o)
+};
+const MOODS={
+ calm:{root:110,ch:[0,7,12,16,19],wave:'sine',cut:900,lfo:.1},
+ joyful:{root:131,ch:[0,4,7,12],wave:'triangle',cut:2500,lfo:.2,step:'arp',every:420},
+ sad:{root:110,ch:[0,3,7,10],wave:'triangle',cut:700,lfo:.07},
+ tense:{root:73,ch:[0,1,6,7],wave:'sawtooth',cut:500,lfo:.3,step:'heart',every:900},
+ eerie:{root:98,ch:[0,3,6,9,15],wave:'sine',cut:1800,lfo:.15,step:'bell',every:3500},
+ dramatic:{root:73,ch:[0,7,12,15,19],wave:'sawtooth',cut:1100,lfo:.12,step:'drum',every:2400},
+ battle:{root:65,ch:[0,7,12],wave:'sawtooth',cut:1400,lfo:.5,step:'drum',every:480}
+};
+function mkMusic(key){
+  const m=MOODS[key],k=kit(bus.music),f=ac.createBiquadFilter();
+  f.type='lowpass';f.frequency.value=m.cut;f.Q.value=2;f.connect(k.out);
+  m.ch.forEach(st=>[-6,6].forEach(dt=>{
+    const o=ac.createOscillator();o.type=m.wave;o.frequency.value=m.root*2**(st/12);o.detune.value=dt;
+    o.connect(gain(.3/m.ch.length)).connect(f);o.start();k.srcs.push(o);
+  }));
+  const l=ac.createOscillator();l.frequency.value=m.lfo;l.connect(gain(m.cut*.4)).connect(f.frequency);l.start();k.srcs.push(l);
+  if(m.step)k.rnd(()=>STEP[m.step](m,k.out),m.every,m.every);
+  return k;
+}
+
+/* ---------- semantic analysis (keyword lexicons with decay) ---------- */
+const MOOD={
+ calm:'peaceful quiet calm gentle rest soft serene still warm breeze sleep morning meadow slowly relax',
+ joyful:'laugh celebrat festiv cheer joy danc feast happy toast merry smil delight party',
+ sad:'sorrow grief mourn tear weep funeral loss lonely farewell died dead grave regret sad',
+ tense:'suddenly tense silen hush suspicio creep sneak shadow watch careful nervous wait ambush stalk trap',
+ eerie:'eerie ghost haunt whisper fog mist cold undead skeleton spirit curse strange unnatural moonlight crypt dark ancient void',
+ dramatic:'dragon destiny doom prophecy king power epic thunder tower fate legendary towering vast roar betray reveal villain demon',
+ battle:'attack sword slash strike hit blood arrow fight combat initiative damage charge axe shield wound kill clash fireball enemy goblin orc'
+};
+const SET={
+ tavern:'tavern inn ale barkeep bartender mug pint hearth innkeeper bard patrons drink stew',
+ market:'market stall merchant vendor bazaar haggl crowd square shopkeeper wares street town city',
+ forest:'forest tree woods leaves bird path grove undergrowth branch moss trail glade',
+ cave:'cave cavern stalactite drip echo tunnel dungeon crypt mine underground damp tomb lair',
+ combat:'fight attack initiative damage sword clash arrow swing enemy combat battle',
+ sea:'ship sea ocean waves sail deck harbor dock captain port shore beach boat',
+ storm:'storm rain thunder lightning downpour howling drizzle gale',
+ camp:'campfire fire camp flames embers crackl tent bedroll',
+ mountain:'mountain peak cliff snow blizzard ridge windswept'
+};
+const rxOf=o=>Object.fromEntries(Object.entries(o).map(([k,v])=>[k,new RegExp('\\b('+v.split(' ').join('|')+')','g')]));
+const LEX={music:rxOf(MOOD),amb:rxOf(SET)};
+const SC={music:{},amb:{}},cur={music:null,amb:null},obj={music:null,amb:null},sel={music:'auto',amb:'auto'};
+const BUILD={music:mkMusic,amb:mkAmb};
+const NAMES={
+ calm:'Calm',joyful:'Joyful',sad:'Sorrowful',tense:'Tense',eerie:'Eerie',dramatic:'Dramatic',battle:'Battle',
+ tavern:'Tavern',market:'Market',forest:'Forest',cave:'Cave',combat:'Combat',sea:'At sea',storm:'Storm',camp:'Campfire',mountain:'Mountains'
+};
+function analyse(t){
+  for(const n of ['music','amb']){
+    const s=SC[n];for(const k in s)s[k]*=.8;
+    for(const k in LEX[n]){const m=t.match(LEX[n][k]);if(m)s[k]=(s[k]||0)+m.length}
+    decide(n);
+  }
+}
+function decide(n){
+  let key=sel[n];
+  if(key==='auto'){
+    const s=SC[n],best=Object.keys(s).sort((a,b)=>s[b]-s[a])[0],c=cur[n];
+    key=best&&s[best]>=1&&(!c||s[best]>(s[c]||0)*1.3)?best:c;
+  }
+  if(!ac||key===cur[n])return;
+  cur[n]=key;
+  const old=obj[n];
+  if(old){old.out.gain.setTargetAtTime(0,ac.currentTime,1.2);setTimeout(()=>old.stop(),7000)}
+  obj[n]=null;
+  if(key){const o=BUILD[n](key);o.out.gain.setTargetAtTime(1,ac.currentTime,1.5);obj[n]=o}
+  $(n+'-now').textContent=key?NAMES[key]:'–';
+}
+setInterval(()=>{for(const n of ['music','amb'])for(const k in SC[n])SC[n][k]*=.97},3000);
+
+/* ---------- speech + UI ---------- */
+function handle(text,final){
+  const t=text.toLowerCase();
+  fx(t);
+  if(final){analyse(t);fired.clear()}
+  $('tr').innerHTML=(final?'':'<i>')+text.trim().slice(-600)+(final?'':'</i>');
+}
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+function listen(){
+  rec=new SR();rec.continuous=true;rec.interimResults=true;rec.lang='en-US';
+  rec.onresult=e=>{let im='';
+    for(let i=e.resultIndex;i<e.results.length;i++){const r=e.results[i];
+      if(r.isFinal)handle(r[0].transcript,true);else im+=r[0].transcript}
+    if(im)handle(im,false)};
+  rec.onerror=e=>{if(e.error==='not-allowed'||e.error==='service-not-allowed'){running=false;$('go').click();$('st').textContent='Microphone blocked. Allow it in your browser settings.'}};
+  rec.onend=()=>{if(running)try{rec.start()}catch(e){}};
+  rec.start();
+}
+function init(){
+  ac=new (window.AudioContext||window.webkitAudioContext)();
+  nb=ac.createBuffer(1,ac.sampleRate*2,ac.sampleRate);
+  const d=nb.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+  for(const n in vol){bus[n]=gain(vol[n]);bus[n].connect(ac.destination)}
+}
+$('go').onclick=()=>{
+  const b=$('go');
+  if(!running){
+    if(!ac)init();ac.resume();running=true;b.textContent='Stop';b.classList.add('on');
+    decide('music');decide('amb');
+    if(SR){listen();$('st').textContent='Listening…'}
+    else $('st').textContent='Speech recognition isn’t supported here. Use Chrome, Edge or Safari, or type lines below.';
+  }else{
+    running=false;b.textContent='Begin listening';b.classList.remove('on');$('st').textContent='Paused';
+    if(rec)rec.stop();
+    ['music','amb'].forEach(n=>{if(obj[n]){obj[n].stop();obj[n]=null;cur[n]=null;$(n+'-now').textContent='–'}});
+  }
+};
+$('tx').onkeydown=e=>{
+  if(e.key==='Enter'&&e.target.value.trim()){
+    if(!ac){init();ac.resume()}
+    handle(e.target.value,true);e.target.value='';
+  }
+};
+const LAYERS=[
+ ['music','Mood and music','var(--moss)',MOOD],
+ ['amb','Setting','var(--brass)',SET],
+ ['fx','Sound effects','var(--ember)',null]
+];
+$('layers').innerHTML=LAYERS.map(([n,t,c,o])=>`
+ <div class="layer" style="--c:${c}"><h2>${t}<span id="${n}-now">${o?'–':'on cue'}</span></h2>
+ <div class="row">${o?`<select id="${n}-sel" aria-label="${t}"><option value="auto">Auto</option>${Object.keys(o).map(k=>`<option value="${k}">${NAMES[k]}</option>`).join('')}</select>`:''}
+ <input type="range" id="${n}-vol" min="0" max="1" step=".01" value="${vol[n]}" aria-label="${t} volume"></div></div>`).join('');
+LAYERS.forEach(([n,,,o])=>{
+  $(n+'-vol').oninput=e=>{vol[n]=+e.target.value;if(bus[n])bus[n].gain.value=vol[n]};
+  if(o)$(n+'-sel').onchange=e=>{sel[n]=e.target.value;decide(n)};
+});
+</script>
+</body>
+</html>
