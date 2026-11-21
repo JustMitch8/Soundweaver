@@ -633,7 +633,7 @@ function info(n){
       Object.keys(o).map(k=>row(NAMES[k],DESC[k],o[k].split(' '))).join('')}
   $('dt').textContent=t;$('db').innerHTML=h;$('dlg').showModal();
 }
-document.querySelectorAll('.i').forEach(b=>b.onclick=()=>info(b.dataset.n));
+document.querySelectorAll('.i[data-n]').forEach(b=>b.onclick=()=>info(b.dataset.n));
 $('dx').onclick=()=>$('dlg').close();
 $('dlg').onclick=e=>{if(e.target===$('dlg'))$('dlg').close()};
 $('db').onclick=e=>{const b=e.target.closest('.mo');if(!b)return;const s=b.previousElementSibling;s.hidden=!s.hidden;b.textContent=s.hidden?'show more':'show less'};
