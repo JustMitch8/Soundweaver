@@ -36,26 +36,63 @@ dialog::backdrop{background:#000b}
 .db{padding:4px 16px 16px}.db .nt{color:var(--dim);font-size:.9rem}
 .nt{margin:.3rem 0;color:var(--dim);font-size:.9rem}
 .it{padding:9px 0;border-bottom:1px solid var(--line)}.it p{margin:.15rem 0;font-size:.92rem;color:var(--dim)}
+.lr{padding:2px 0;word-break:break-word}.lt{color:var(--dim)}.lm{color:var(--ink)}
+.tg{color:var(--tc);border:1px solid var(--tc);border-radius:4px;padding:0 5px;margin:0 6px;font-size:11px}
+.t-err .lm{color:#ff9a9a}
+.t-hear{--tc:#6ea8fe}.t-think{--tc:#b69cff}.t-scene{--tc:#f08fc0}.t-fx{--tc:#d0755a}.t-search{--tc:#e0b84c}
+.t-dl{--tc:#4cc9e0}.t-cache{--tc:#5fd0a0}.t-play{--tc:#8fd16a}.t-synth{--tc:#9aa3b5}.t-err{--tc:#ff6b6b}.t-sys{--tc:#c9a24d}
+#lgd{position:fixed;inset:auto 8px 8px auto;margin:0;width:min(460px,calc(100% - 16px));max-height:55vh;box-shadow:0 8px 30px #000a}
+#lgd[open]{display:flex;flex-direction:column}
+#lb{overflow:auto;padding:8px 12px 12px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace}
+.br{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:.92rem}.br.cur .bn{color:var(--brass);font-weight:700}
+.bn{width:7.2rem;flex:none}.bt{position:relative;flex:1;height:12px;background:#111827;border-radius:6px;overflow:hidden}
+.bf{height:100%;width:0;transition:width .4s}.th{position:absolute;top:0;bottom:0;width:2px;background:#fffa}
+.bp{width:3rem;text-align:right;color:var(--dim);font-variant-numeric:tabular-nums}
+#dash canvas{width:100%;height:90px;background:#111827;border-radius:6px;margin-top:8px}
 </style>
 </head>
 <body>
 <main>
 <h1>Soundweaver</h1>
 <p class="sub">Live soundscapes for your table, woven from what the DM says. Everything is synthesised in your browser, so there are no audio files to host.</p>
-<button id="go">Begin listening</button><span id="st"></span>
-<div id="layers"></div>
+<button id="go">Begin listening</button><span id="st"></span><button class="i" id="lgb" style="--c:var(--brass);width:auto;height:auto;padding:.2rem .7rem;border-radius:14px;font-style:normal;margin-left:.6rem">Activity log</button><button class="i" id="dbb" style="--c:var(--moss);width:auto;height:auto;padding:.2rem .7rem;border-radius:14px;font-style:normal;margin-left:.5rem">Dashboard</button>
+<div id="mainv"><div id="layers"></div>
 <div class="box"><h3>What it hears</h3><div id="tr"><i>Nothing yet.</i></div>
 <input id="tx" type="text" placeholder="Or type a line to test, then press Enter" aria-label="Test line"></div>
 <div class="box"><h3>Sound sources</h3>
 <p class="nt">Status: <b id="ss">built-in synth</b>. For real recordings of taverns, markets, ships and more, add a free <a href="https://freesound.org/apiv2/apply" target="_blank" rel="noopener" style="color:var(--brass)">Freesound API key</a>. It only searches CC0 sounds and stays in this browser.</p>
 <div class="row"><input type="text" id="fk" placeholder="Freesound API key" aria-label="Freesound API key" style="flex:1"><button class="mo" id="fs">Save</button></div>
+<div class="row"><button class="mo" id="pl">Preload all sounds</button> &nbsp; <button class="mo" id="cc">Clear cache</button></div>
+<p class="nt">Preloading downloads one recording per scene and mood to this browser, so later starts are near-instant, even in future sessions.</p>
 <p class="nt" id="cr"></p></div>
 <div class="box"><h3>Recent effects</h3><div id="lg">–</div></div>
+</div>
+<section id="dash" hidden>
+<h2 style="font-size:1.15rem;margin:18px 0 4px">Analysis dashboard</h2>
+<p class="nt">Model: <b id="ds">not loaded (starts when you press Begin listening)</b> · last update <span id="dms">–</span></p>
+<div class="box"><h3>What the model is reading (last ~50 words)</h3><div id="dwin" class="nt">Nothing yet.</div></div>
+<div class="box"><h3>Mood: <b id="dc-music" style="color:var(--ink)">–</b></h3><div id="dm"></div><canvas id="cv-music" width="600" height="90"></canvas></div>
+<div class="box"><h3>Setting: <b id="dc-amb" style="color:var(--ink)">–</b></h3><div id="da"></div><canvas id="cv-amb" width="600" height="90"></canvas></div>
+<div class="box"><h3>Shift signals (a high value lowers that layer’s switch threshold)</h3>
+<div class="br"><span class="bn">Mood shift</span><div class="bt"><div class="bf" id="tau-music" style="background:var(--ember)"></div></div><span class="bp" id="tv-music">0%</span></div>
+<div class="br"><span class="bn">Setting shift</span><div class="bt"><div class="bf" id="tau-amb" style="background:var(--ember)"></div></div><span class="bp" id="tv-amb">0%</span></div></div>
+<div class="box"><h3>Tuning</h3>
+<div class="br"><span class="bn" style="width:9rem">Sharpness (lower = bolder)</span><input type="range" id="p-temp" min=".03" max=".25" step=".01" value=".08" style="flex:1"><span class="bp" id="pv-temp"></span></div>
+<div class="br"><span class="bn" style="width:9rem">Mood stickiness</span><input type="range" id="p-sm" min=".5" max=".99" step=".01" value=".88" style="flex:1"><span class="bp" id="pv-sm"></span></div>
+<div class="br"><span class="bn" style="width:9rem">Setting stickiness</span><input type="range" id="p-ss" min=".8" max=".995" step=".005" value=".97" style="flex:1"><span class="bp" id="pv-ss"></span></div></div>
+</section>
 </main>
 <dialog id="dlg"><div class="dh"><b id="dt"></b><button class="mo" id="dx">Close</button></div><div class="db" id="db"></div></dialog>
+<dialog id="lgd"><div class="dh"><b>Activity log</b><span><button class="mo" id="lcl">Clear</button> &nbsp; <button class="mo" id="lx">Close</button></span></div><div id="lb"></div></dialog>
 <script>
 const $=id=>document.getElementById(id), R=(a,b)=>a+Math.random()*(b-a);
 let ac,nb,running=false,rec;
+const TAGS={hear:'heard',think:'analysis',scene:'scene',fx:'effect',search:'search',dl:'download',cache:'cache',play:'playing',synth:'synth',err:'error',sys:'system'};
+function log(t,m){
+  const lb=$('lb'),r=document.createElement('div');r.className='lr t-'+t;
+  [['lt',new Date().toTimeString().slice(0,8)],['tg',TAGS[t]],['lm',m]].forEach(([c,x])=>{const e=document.createElement('span');e.className=c;e.textContent=x;r.append(e)});
+  lb.append(r);while(lb.children.length>300)lb.firstChild.remove();lb.scrollTop=lb.scrollHeight;
+}
 const bus={},vol={music:.5,amb:.5,fx:.8};
 
 /* ---------- audio primitives ---------- */
@@ -179,14 +216,14 @@ const FX=[
  ['wind','Wind gust','gust,howling wind,wind whips,wind rushes,blizzard,gale'],
  ['chains','Rattling chains','chain,shackle,manacle,rattle,fetter,prison']
 ];
-const FXR=FX.map(([n,,w])=>[n,new RegExp('\\b(?:'+w.split(',').join('|')+')','g')]);
+const FXR=FX.map(([n,l,w])=>[n,new RegExp('\\b(?:'+w.split(',').join('|')+')','g'),l]);
 let fired=new Set(),last={};
 function fx(t){
   if(!ac)return;
-  for(const [n,rx] of FXR)for(const m of t.matchAll(rx)){
+  for(const [n,rx,lab] of FXR)for(const m of t.matchAll(rx)){
     const key=n+m.index;if(fired.has(key))continue;fired.add(key);
     if(Date.now()-(last[n]||0)<3000)continue;
-    last[n]=Date.now();SFX[n]();
+    last[n]=Date.now();SFX[n]();log('fx',`Heard “${m[0]}” → ${lab}`);
     const l=$('lg');l.textContent=(l.textContent==='–'?'':l.textContent+', ')+n;
     if(l.textContent.length>120)l.textContent=l.textContent.slice(-90);
   }
@@ -206,7 +243,7 @@ const AMB={
  camp(k){bn(k,'lowpass',150,.3,.05);bn(k,'bandpass',4500,20,.1,18,.08);k.rnd(()=>SFX.pop(k.out),120,600)},
  mountain(k){bn(k,'bandpass',350,.8,.5,.08,.3);bn(k,'bandpass',900,2,.2,.13,.15);k.rnd(()=>SFX.wolf(k.out),30000,60000)}
 };
-const mkAmb=key=>{const k=kit(bus.amb);sampled('amb',key,k).then(ok=>{if(!ok&&!k.dead)AMB[key](k)});return k};
+const mkAmb=key=>{const k=kit(bus.amb);sampled('amb',key,k).then(ok=>{if(!ok&&!k.dead){log('synth',`Using built-in synth for ${NAMES[key]}`);AMB[key](k)}});return k};
 
 /* ---------- real recordings: local files, then Freesound (CC0), then synth ---------- */
 const LOCAL={amb:{},music:{}}; // optional: drop files in your repo, e.g. amb:{tavern:['audio/tavern.ogg']}, music:{calm:['audio/calm1.mp3','audio/calm2.mp3']}
@@ -219,42 +256,92 @@ const Q={amb:{
  tense:['tense suspense dark ambient'],eerie:['eerie creepy horror ambient'],dramatic:['epic dramatic orchestral cinematic'],battle:['epic battle drums orchestral action']}};
 const getKey=()=>{try{return localStorage.getItem('fsk')||''}catch(e){return''}};
 let fsCache={};
+const sq=()=>{try{return JSON.parse(localStorage.getItem('fsq')||'{}')}catch(e){return{}}};
+const sqSet=(k,v)=>{try{const o=sq();o[k]=v;localStorage.setItem('fsq',JSON.stringify(o))}catch(e){}};
+const ms=t=>((performance.now()-t)/1000).toFixed(1)+'s';
 function fsFind(q,kind){
   const key=getKey();if(!key)return Promise.resolve([]);
-  return fsCache[q]||(fsCache[q]=(async()=>{try{
-    const u='https://freesound.org/apiv2/search/text/?'+new URLSearchParams({query:q,
-      filter:'license:"Creative Commons 0" duration:'+(kind==='music'?'[40 TO 400]':'[20 TO 300]'),
-      fields:'id,name,username,previews',page_size:15,token:key});
-    const r=await fetch(u);if(!r.ok)throw 0;
-    return (await r.json()).results.map(x=>({url:x.previews['preview-hq-mp3'],name:x.name,user:x.username}));
-  }catch(e){return[]}})());
+  const ck=kind+'|'+q,saved=sq()[ck];
+  if(saved&&saved.length){log('cache',`Search remembered: “${q}” (${saved.length} results)`);return Promise.resolve(saved)}
+  return fsCache[ck]||(fsCache[ck]=(async()=>{const t=performance.now();log('search',`Searching Freesound: “${q}”`);try{
+    const r=await fetch('https://freesound.org/apiv2/search/text/?'+new URLSearchParams({query:q,
+      filter:'license:"Creative Commons 0" duration:'+(kind==='music'?'[40 TO 240]':'[20 TO 120]'),
+      fields:'id,name,username,previews',page_size:15,token:key}));
+    if(!r.ok){log('err',`Freesound replied ${r.status}${r.status==401?' (check your API key)':r.status==429?' (rate limit, wait a minute)':''}`);throw 0}
+    const res=(await r.json()).results.map(x=>({url:x.previews['preview-hq-mp3'],lq:x.previews['preview-lq-mp3'],name:x.name,user:x.username}));
+    log('search',`Found ${res.length} CC0 results for “${q}” in ${ms(t)}`);if(res.length)sqSet(ck,res);return res;
+  }catch(e){if(e)log('err','Search failed: '+(e.message||e));delete fsCache[ck];return[]}})());
 }
-const buf=async u=>{try{const r=await fetch(u);return await ac.decodeAudioData(await r.arrayBuffer())}catch(e){return null}};
+const AC='soundweaver-audio',bufs={};
+const cacheOpen=async()=>{try{return await caches.open(AC)}catch(e){return null}};
+const aurl=(it,lq)=>lq&&it.lq?it.lq:it.url;
+async function pick(g,lq){ // prefer a sound that is already cached, so it starts instantly
+  const c=await cacheOpen(),top=g.slice(0,8).sort(()=>Math.random()-.5);
+  if(c)for(const it of top)if(await c.match(aurl(it,lq)))return it;
+  return top[0];
+}
+async function load(it,lq,keep){
+  const url=aurl(it,lq);if(keep&&bufs[url])return bufs[url];
+  const go=async()=>{try{
+    const c=await cacheOpen();let r=c&&await c.match(url);const t=performance.now(),hit=!!r;
+    if(!r){log('dl',`Downloading “${it.name}”…`);r=await fetch(url);if(!r.ok)throw new Error('HTTP '+r.status);if(c)c.put(url,r.clone()).catch(()=>{})}
+    const ab=await r.arrayBuffer();
+    log(hit?'cache':'dl',hit?`Loaded “${it.name}” from cache`:`Downloaded ${(ab.byteLength/1e6).toFixed(1)} MB in ${ms(t)}`);
+    const t2=performance.now(),b=await ac.decodeAudioData(ab);log('dl',`Decoded “${it.name}” in ${ms(t2)}`);return b;
+  }catch(e){log('err',`Couldn’t load “${it.name}”: ${e.message||e}`);delete bufs[url];return null}};
+  return keep?(bufs[url]=go()):go();
+}
 const credit=it=>{const e=$('cr'),t=it.name+(it.user?' by '+it.user:'');if(!e.textContent.includes(t))e.textContent+=(e.textContent?'; ':'Recordings in use (CC0): ')+t};
 async function sampled(kind,key,k){
-  const loc=LOCAL[kind][key];let groups=[];
+  k.t0=performance.now();
+  const loc=LOCAL[kind][key];let groups;
   if(loc&&loc.length)groups=[loc.map(u=>({url:u,name:u}))];
-  else for(const q of Q[kind][key]){const r=await fsFind(q,kind);if(r.length)groups.push(r)}
+  else groups=(await Promise.all(Q[kind][key].map(q=>fsFind(q,kind)))).filter(g=>g.length);
   let ok=false;
   if(groups.length&&!k.dead){
     if(kind==='amb'){
-      for(const [i,g] of groups.entries()){
-        const it=g[Math.floor(R(0,Math.min(8,g.length)))],b=await buf(it.url);if(!b||k.dead)continue;
+      ok=(await Promise.all(groups.map(async(g,i)=>{
+        const it=await pick(g,true),b=await load(it,true,true);if(!b||k.dead)return false;
         const s=ac.createBufferSource();s.buffer=b;s.loop=true;s.connect(gain(i?.7:1)).connect(k.out);
-        s.start(0,R(0,b.duration*.8));k.srcs.push(s);credit(it);ok=true;
-      }
+        s.start(0,R(0,b.duration*.8));k.srcs.push(s);credit(it);
+        log('play',`Playing “${it.name}” (${NAMES[key]}, layer ${i+1}) ${ms(k.t0)} after the scene changed`);return true;
+      }))).some(Boolean);
     }else{
-      const list=[...groups[0]].sort(()=>Math.random()-.5);let i=0;
+      const first=await pick(groups[0],false),list=[first,...groups[0].filter(x=>x!==first).sort(()=>Math.random()-.5)];let i=0;
       const play=async()=>{for(let n=0;n<list.length;n++){
-        if(k.dead)return false;const it=list[i++%list.length],b=await buf(it.url);if(!b)continue;if(k.dead)return false;
+        if(k.dead)return false;const it=list[i++%list.length],b=await load(it,false,false);if(!b)continue;if(k.dead)return false;
         const s=ac.createBufferSource(),g=ac.createGain(),t=ac.currentTime,d=b.duration;
         s.buffer=b;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(1,t+3);g.gain.setValueAtTime(1,t+d-3);g.gain.linearRampToValueAtTime(0,t+d);
-        s.connect(g).connect(k.out);s.start();k.srcs.push(s);credit(it);s.onended=play;return true}return false};
+        s.connect(g).connect(k.out);s.start();k.srcs.push(s);credit(it);s.onended=play;
+        log('play',`Playing “${it.name}” (${NAMES[key]} music) ${ms(k.t0)} after the scene changed`);return true}return false};
       ok=await play();
     }
   }
   if(!k.dead&&getKey())$('ss').textContent=ok?'playing real recordings':'no recordings found, using built-in synth';
   return ok;
+}
+async function warmSearches(){
+  if(!getKey())return;const jobs=[];
+  for(const kind of ['amb','music'])for(const key in Q[kind])for(const q of Q[kind][key])jobs.push([kind,q]);
+  const w=async()=>{while(jobs.length){const [kind,q]=jobs.shift();await fsFind(q,kind)}};
+  await Promise.all([w(),w(),w()]);
+}
+async function preload(){
+  if(!getKey()){log('err','Add a Freesound key first.');return}
+  if(!ac)init();
+  const todo=[];for(const kind of ['amb','music'])for(const key in Q[kind])todo.push([kind,key]);
+  const total=todo.length,t=performance.now();let done=0;
+  log('sys',`Preloading ${total} soundscapes so they start instantly…`);
+  const w=async()=>{while(todo.length){const [kind,key]=todo.shift(),lq=kind==='amb';
+    for(const g of await Promise.all(Q[kind][key].map(q=>fsFind(q,kind)))){
+      if(!g.length)continue;const it=await pick(g,lq),c=await cacheOpen(),url=aurl(it,lq);
+      if(!c||await c.match(url))continue;
+      log('dl',`Pre-downloading “${it.name}”`);
+      try{const r=await fetch(url);if(r.ok)await c.put(url,r)}catch(e){log('err',`Pre-download failed: ${e.message||e}`)}
+    }
+    $('ss').textContent=`preloading ${++done}/${total}`}};
+  await Promise.all([w(),w(),w()]);
+  log('sys',`Preload finished in ${ms(t)}. These sounds now start from cache.`);$('ss').textContent='preloaded and ready';
 }
 
 /* ---------- layer 1: generative mood music (fallback when no recordings) ---------- */
@@ -290,7 +377,7 @@ function genMusic(key,k){
     i++;setTimeout(tick,st*1000);
   };tick();
 }
-const mkMusic=key=>{const k=kit(bus.music);sampled('music',key,k).then(ok=>{if(!ok&&!k.dead)genMusic(key,k)});return k};
+const mkMusic=key=>{const k=kit(bus.music);sampled('music',key,k).then(ok=>{if(!ok&&!k.dead){log('synth',`Using generative synth music for ${NAMES[key]}`);genMusic(key,k)}});return k};
 
 /* ---------- semantic analysis (keyword lexicons with decay) ---------- */
 const MOOD={
@@ -322,19 +409,23 @@ const NAMES={
  tavern:'Tavern',market:'Market',forest:'Forest',cave:'Cave',combat:'Combat',sea:'At sea',storm:'Storm',camp:'Campfire',mountain:'Mountains'
 };
 function analyse(t){
+  if(ML.on)return;
   for(const n of ['music','amb']){
     const s=SC[n];for(const k in s)s[k]*=.8;
     for(const k in LEX[n]){const m=t.match(LEX[n][k]);if(m)s[k]=(s[k]||0)+m.length}
-    decide(n);
   }
+  const tp=n=>{const s=SC[n],b=Object.keys(s).sort((x,y)=>s[y]-s[x])[0];return b&&s[b]>0?`${NAMES[b]} ${s[b].toFixed(1)}`:'none'};
+  log('think',`Scores → mood: ${tp('music')}, setting: ${tp('amb')}`);
+  decide('music');decide('amb');
 }
 function decide(n,force){
   let key=sel[n];
   if(key==='auto'){
     const s=SC[n],best=Object.keys(s).sort((a,b)=>s[b]-s[a])[0],c=cur[n];
-    key=best&&s[best]>=1&&(!c||s[best]>(s[c]||0)*1.3)?best:c;
+    key=ML.on?(ML.cur[n]||c):best&&s[best]>=1&&(!c||s[best]>(s[c]||0)*1.3)?best:c;
   }
   if(!ac||(key===cur[n]&&!force))return;
+  log('scene',`${n==='music'?'Mood':'Setting'}: ${NAMES[cur[n]]||'none'} → ${NAMES[key]||'none'}${sel[n]!=='auto'?' (manual)':force?' (reloading)':''}`);
   cur[n]=key;
   const old=obj[n];
   if(old){old.out.gain.setTargetAtTime(0,ac.currentTime,1.2);setTimeout(()=>old.stop(),7000)}
@@ -348,7 +439,9 @@ setInterval(()=>{for(const n of ['music','amb'])for(const k in SC[n])SC[n][k]*=.
 function handle(text,final){
   const t=text.toLowerCase();
   fx(t);
-  if(final){analyse(t);fired.clear()}
+  if(final){ML.words=ML.words.concat(text.split(/\s+/).filter(Boolean)).slice(-120);ML.interim=''}else ML.interim=text;
+  mlSched();
+  if(final){log('hear',`“${text.trim().slice(0,90)}”`);analyse(t);fired.clear()}
   $('tr').innerHTML=(final?'':'<i>')+text.trim().slice(-600)+(final?'':'</i>');
 }
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -358,7 +451,7 @@ function listen(){
     for(let i=e.resultIndex;i<e.results.length;i++){const r=e.results[i];
       if(r.isFinal)handle(r[0].transcript,true);else im+=r[0].transcript}
     if(im)handle(im,false)};
-  rec.onerror=e=>{if(e.error==='not-allowed'||e.error==='service-not-allowed'){running=false;$('go').click();$('st').textContent='Microphone blocked. Allow it in your browser settings.'}};
+  rec.onerror=e=>{if(e.error!=='no-speech')log('err','Speech recognition: '+e.error);if(e.error==='not-allowed'||e.error==='service-not-allowed'){running=false;$('go').click();$('st').textContent='Microphone blocked. Allow it in your browser settings.'}};
   rec.onend=()=>{if(running)try{rec.start()}catch(e){}};
   rec.start();
 }
@@ -367,16 +460,17 @@ function init(){
   nb=ac.createBuffer(1,ac.sampleRate*2,ac.sampleRate);
   const d=nb.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
   for(const n in vol){bus[n]=gain(vol[n]);bus[n].connect(ac.destination)}
+  log('sys','Audio engine ready');
 }
 $('go').onclick=()=>{
   const b=$('go');
   if(!running){
     if(!ac)init();ac.resume();running=true;b.textContent='Stop';b.classList.add('on');
-    decide('music');decide('amb');
-    if(SR){listen();$('st').textContent='Listening…'}
+    decide('music');decide('amb');warmSearches();loadML();
+    if(SR){listen();log('sys','Listening for speech');$('st').textContent='Listening…'}
     else $('st').textContent='Speech recognition isn’t supported here. Use Chrome, Edge or Safari, or type lines below.';
   }else{
-    running=false;b.textContent='Begin listening';b.classList.remove('on');$('st').textContent='Paused';
+    running=false;b.textContent='Begin listening';b.classList.remove('on');$('st').textContent='Paused';log('sys','Stopped listening');
     if(rec)rec.stop();
     ['music','amb'].forEach(n=>{if(obj[n]){obj[n].stop();obj[n]=null;cur[n]=null;$(n+'-now').textContent='–'}});
   }
@@ -402,8 +496,122 @@ LAYERS.forEach(([n,,,o])=>{
 });
 $('fk').value=getKey();
 $('fs').onclick=()=>{try{localStorage.setItem('fsk',$('fk').value.trim())}catch(e){}
-  fsCache={};$('cr').textContent='';$('ss').textContent=getKey()?'searching Freesound…':'built-in synth';
+  fsCache={};log('sys',getKey()?'Freesound key saved':'Freesound key removed');$('cr').textContent='';$('ss').textContent=getKey()?'searching Freesound…':'built-in synth';
   if(running)['music','amb'].forEach(n=>{if(cur[n])decide(n,true)})};
+$('pl').onclick=preload;
+$('cc').onclick=async()=>{try{await caches.delete(AC);localStorage.removeItem('fsq')}catch(e){}
+  fsCache={};for(const u in bufs)delete bufs[u];log('sys','Cache cleared');$('ss').textContent='cache cleared'};
+$('lgb').onclick=()=>{const d=$('lgd');if(d.open)d.close();else{d.show();$('lb').scrollTop=$('lb').scrollHeight}};
+$('lx').onclick=()=>$('lgd').close();
+$('lcl').onclick=()=>{$('lb').textContent=''};
+/* ---------- semantic analysis: in-browser embeddings + persistent beliefs ---------- */
+const TBL=['Okay, who wants to roll the dice? What is your armor class and how many hit points do you have?','Let me check the rules, does anyone need a break, a snack or a drink?','Out of game chat about scheduling, notes and when the next session is.'];
+const PROTO={
+ music:{
+  calm:['A quiet, peaceful moment of rest with soft light and gentle breezes.','Everything is calm, safe and still, and the party relaxes and catches their breath.','A slow, tranquil morning in a quiet place.'],
+  joyful:['People laugh and celebrate, music and dancing fill the room and everyone is happy.','A joyful feast with cheering, toasts and merriment.','A triumphant, uplifting moment of good news and victory.'],
+  sad:['A sorrowful scene of grief, loss and mourning, with quiet tears.','The funeral is somber and the character remembers someone they lost.','A lonely, heartbroken farewell filled with regret.'],
+  tense:['Tense silence as something dangerous waits just out of sight and everyone holds their breath.','You sneak carefully through the shadows, listening for footsteps, afraid of being discovered.','Suspicion and unease build as you realise you are being watched.'],
+  eerie:['An eerie haunted place with cold mist, whispers and ghostly shapes.','Something unnatural and ancient stirs in the dark and the air feels cursed.','Undead creatures and pale spirits drift through a silent crypt.'],
+  dramatic:['A grand, epic revelation about destiny, prophecy and the fate of the kingdom.','A terrifying dragon rises, towering and powerful, as the villain reveals a shocking betrayal.','A momentous, powerful speech at a turning point in the story.'],
+  battle:['Swords clash and arrows fly in a violent, chaotic fight with blood and shouting everywhere.','The monsters charge, you swing your axe and deal heavy damage in fierce combat.','A desperate fight for survival against orcs, goblins and a monstrous beast.'],
+  table:TBL},
+ amb:{
+  tavern:['A warm, noisy tavern with ale, a crackling hearth, patrons talking and a bard playing.','You sit at a wooden table in the inn while the innkeeper pours drinks.','The common room of the inn is crowded with travelers drinking and eating stew.'],
+  market:['A bustling market square with merchants calling out, stalls full of wares and crowds haggling.','You push through the busy town streets past vendors, carts and shoppers.','The city bazaar is loud with shopkeepers selling food, cloth and trinkets.'],
+  forest:['A quiet forest with tall trees, birdsong, rustling leaves and a narrow trail.','You walk through dense woods with branches and moss all around.','Sunlight filters into a green glade deep in the wilderness.'],
+  cave:['A damp, dark cave with dripping water, echoing tunnels and stone walls.','You descend into a dungeon or underground tomb with torches flickering on cold stone.','Deep in the mine the tunnel narrows and every sound echoes.'],
+  combat:['A fierce battle is underway with weapons clashing and enemies attacking, everyone fighting for their lives.','Arrows whistle past as the monsters charge and the party strikes back.','You are in the middle of a chaotic combat encounter.'],
+  sea:['A wooden ship on the open sea with waves, creaking timber, sails and salt spray.','The captain shouts orders on deck as the ship sails toward the harbor.','You stand on the dock by the ocean shore with gulls and boats nearby.'],
+  storm:['A violent storm with pouring rain, howling wind and rolling thunder.','Lightning cracks overhead as you shelter from the downpour.','Heavy rain and gales lash the travelers.'],
+  camp:['Your party rests around a crackling campfire at night under the stars.','The embers glow in the dark camp while someone keeps watch.','You pitch tents and share a quiet meal beside the fire.'],
+  mountain:['High on a windswept mountain pass with snow, cliffs and thin cold air.','You climb a steep rocky ridge in a howling blizzard.','The peaks tower above as you cross the frozen mountains.'],
+  table:TBL}};
+const TRANS={
+ music:['Suddenly everything changes and the mood turns dark.','Without warning a scream breaks the silence.','But then something goes terribly wrong.','The tension breaks and everyone bursts into relief and laughter.'],
+ amb:['You leave the building and step outside into a new place.','After several hours of travel you finally arrive at the gates of the city.','The next morning you set out on the road.','You descend a long staircase into the darkness below.','A day later you board the ship and sail away.']};
+NAMES.table='Table talk';
+const ML={on:false,state:'idle',ex:null,cur:{music:null,amb:null},bel:{music:{},amb:{}},lik:{music:{},amb:{}},sim:{music:{},amb:{}},
+  tau:{music:0,amb:0},last:{music:0,amb:0},th:{music:.55,amb:.7},frozen:{},P:{},T:{},hist:{music:[],amb:[]},words:[],interim:'',tm:0,busy:false,
+  lastText:'',win:'',ms:0,par:{temp:.08,sm:.88,ss:.97}};
+const dot=(a,b)=>{let x=0;for(let i=0;i<a.length;i++)x+=a[i]*b[i];return x},sig=x=>1/(1+Math.exp(-x)),clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const setSt=t=>$('ds').textContent=t;
+async function loadML(){
+  if(ML.state!=='idle')return;ML.state='loading';setSt('loading…');log('sys','Loading semantic model (about 25 MB, cached after the first time)…');
+  try{
+    const {pipeline,env}=await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
+    env.allowLocalModels=false;
+    ML.ex=await pipeline('feature-extraction','Xenova/all-MiniLM-L6-v2',{progress_callback:p=>{if(p.status==='progress')setSt(`loading ${Math.round(p.progress)}% (${String(p.file).split('/').pop()})`)}});
+    const emb=async arr=>{const o=await ML.ex(arr,{pooling:'mean',normalize:true});return arr.map((_,i)=>o.data.slice(i*384,(i+1)*384))};
+    const cen=es=>{const c=new Float32Array(384);es.forEach(e=>e.forEach((v,i)=>c[i]+=v));const m=Math.sqrt(dot(c,c));return c.map(v=>v/m)};
+    for(const n of ['music','amb']){
+      ML.P[n]={};for(const k in PROTO[n])ML.P[n][k]=cen(await emb(PROTO[n][k]));
+      ML.T[n]=await emb(TRANS[n]);
+      const labs=Object.keys(PROTO[n]).filter(k=>k!=='table');ML.bel[n]=Object.fromEntries(labs.map(k=>[k,1/labs.length]));
+    }
+    ML.on=true;ML.state='ready';setSt('ready');log('sys','Semantic model ready. It now decides mood and setting; keywords are the fallback.');
+  }catch(e){ML.state='failed';setSt('failed, using keyword matching');log('err','Semantic model failed to load: '+(e.message||e)+'. Using keyword matching.')}
+}
+function mlSched(){if(ML.on&&!ML.tm)ML.tm=setTimeout(()=>{ML.tm=0;mlTick()},1200)}
+async function mlTick(){
+  if(!ML.on||ML.busy)return;
+  const w=ML.words.concat(ML.interim.split(/\s+/).filter(Boolean));if(w.length<4)return;
+  const long=w.slice(-50).join(' '),short=w.slice(-14).join(' ');if(long===ML.lastText)return;
+  ML.lastText=long;ML.busy=true;const t0=performance.now();
+  try{
+    const o=await ML.ex([long,short],{pooling:'mean',normalize:true}),eL=o.data.slice(0,384),eS=o.data.slice(384,768);
+    mlStep('music',eL,eS);mlStep('amb',eL,eS);ML.win=long;ML.ms=performance.now()-t0;drawDash();
+  }catch(e){log('err','Analysis error: '+(e.message||e))}
+  ML.busy=false;
+}
+function mlStep(n,eL,eS){
+  const P=ML.P[n],keys=Object.keys(P),sim={},lik={};keys.forEach(k=>sim[k]=dot(eL,P[k]));
+  const mx=Math.max(...keys.map(k=>sim[k]));let z=0;keys.forEach(k=>{lik[k]=Math.exp((sim[k]-mx)/ML.par.temp);z+=lik[k]});keys.forEach(k=>lik[k]/=z);
+  ML.sim[n]=sim;ML.lik[n]=lik;
+  const phrase=sig((Math.max(...ML.T[n].map(v=>dot(eS,v)))-.32)/.05);let other=0;
+  if(n==='music')other=clamp((1-dot(eS,eL)-.3)/.3,0,1);
+  else if(ML.cur.amb){const c=ML.cur.amb,so=Math.max(...keys.filter(k=>k!=='table'&&k!==c).map(k=>dot(eS,P[k])));other=clamp((so-dot(eS,P[c]))/.1,0,1)}
+  ML.tau[n]=.6*ML.tau[n]+.4*Math.max(phrase,other);
+  const labs=keys.filter(k=>k!=='table'),B=ML.bel[n];
+  ML.frozen[n]=lik.table>.5;
+  if(!ML.frozen[n]){
+    let zz=0;labs.forEach(k=>zz+=lik[k]);
+    const stay=(n==='music'?ML.par.sm:ML.par.ss)*(1-.6*ML.tau[n]),nb={};let s=0;
+    labs.forEach(k=>{nb[k]=(stay*B[k]+(1-stay)*(1-B[k])/(labs.length-1))*(lik[k]/zz);s+=nb[k]});
+    labs.forEach(k=>B[k]=nb[k]/s);
+    const c=ML.cur[n],top=labs.reduce((a,b)=>B[a]>B[b]?a:b),now=Date.now();
+    const th=(n==='music'?.55:.7)*(1-.35*ML.tau[n]),hold=(n==='music'?10:40)*1000*(1-.5*ML.tau[n]);ML.th[n]=th;
+    if((!c&&B[top]>.3)||(c&&top!==c&&B[top]>th&&B[top]-B[c]>.15&&now-ML.last[n]>hold)){
+      log('think',`${n==='music'?'Mood':'Setting'} → ${NAMES[top]} (belief ${Math.round(B[top]*100)}%, shift signal ${Math.round(ML.tau[n]*100)}%)`);
+      ML.cur[n]=top;ML.last[n]=now;decide(n);
+    }
+  }
+  const h=ML.hist[n];h.push({...B});if(h.length>100)h.shift();
+}
+/* dashboard */
+const hue=(i,a)=>`hsl(${i*360/a},60%,58%)`;
+['music','amb'].forEach(n=>{
+  const keys=Object.keys(PROTO[n]);
+  $(n==='music'?'dm':'da').innerHTML=keys.map((k,i)=>`<div class="br" id="r-${n}-${k}"><span class="bn">${NAMES[k]}${k==='table'?' (pauses)':''}</span><div class="bt"><div class="bf" id="b-${n}-${k}" style="background:${k==='table'?'#6b7488':hue(i,keys.length)}"></div>${k==='table'?'':`<div class="th th-${n}"></div>`}</div><span class="bp" id="p-${n}-${k}">0%</span></div>`).join('');
+});
+function drawDash(){
+  $('dwin').textContent=ML.win||'Nothing yet.';$('dms').textContent=Math.round(ML.ms)+' ms';
+  for(const n of ['music','amb']){
+    const keys=Object.keys(PROTO[n]);
+    keys.forEach(k=>{const v=k==='table'?ML.lik[n][k]:ML.bel[n][k];
+      $(`b-${n}-${k}`).style.width=(v*100)+'%';$(`p-${n}-${k}`).textContent=Math.round(v*100)+'%';
+      $(`r-${n}-${k}`).classList.toggle('cur',k===ML.cur[n])});
+    document.querySelectorAll('.th-'+n).forEach(e=>e.style.left=(ML.th[n]*100)+'%');
+    $('dc-'+n).textContent=(ML.cur[n]?NAMES[ML.cur[n]]:'undecided')+(ML.frozen[n]?' (paused: table talk)':'');
+    $('tau-'+n).style.width=(ML.tau[n]*100)+'%';$('tv-'+n).textContent=Math.round(ML.tau[n]*100)+'%';
+    const c=$('cv-'+n),x=c.getContext('2d'),W=c.width,H=c.height,h=ML.hist[n],ks=Object.keys(ML.bel[n]);
+    x.clearRect(0,0,W,H);
+    ks.forEach((k,i)=>{x.beginPath();x.strokeStyle=hue(i,keys.length);x.lineWidth=k===ML.cur[n]?3:1;
+      h.forEach((b,j)=>{const px=j/99*W,py=H-b[k]*(H-4)-2;j?x.lineTo(px,py):x.moveTo(px,py)});x.stroke()});
+  }
+}
+[['temp','temp'],['sm','sm'],['ss','ss']].forEach(([id,k])=>{const e=$('p-'+id),v=$('pv-'+id);v.textContent=e.value;e.oninput=()=>{ML.par[k]=+e.value;v.textContent=e.value}});
+$('dbb').onclick=()=>{const d=$('dash').hidden;$('dash').hidden=!d;$('mainv').hidden=d;$('dbb').textContent=d?'Back to console':'Dashboard'};
 /* ---------- info popups ---------- */
 const DESC={
  calm:'Soft, slow pad in a warm major key',joyful:'Bright, bouncing plucks over a light pad',sad:'Slow minor chords, muted and low',
@@ -421,7 +629,7 @@ function info(n){
   if(n==='fx'){t=`Sound effects (${FX.length})`;
     h=note+'<p class="nt">Each fires as soon as a trigger word is heard, then waits 3 seconds before repeating.</p>'+FX.map(([k,l,w])=>row(l,'',w.split(','))).join('')}
   else{const o=n==='music'?MOOD:SET;t=n==='music'?'Mood and music':'Setting';
-    h=note+'<p class="nt">With a Freesound key connected, real recordings play instead; the descriptions below are the built-in fallback.</p>'+`<p class="nt">${n==='music'?'The mood with the most recent trigger words wins, and the music crossfades to it.':'The scene with the most recent trigger words wins, and the ambience crossfades to it.'}</p>`+
+    h=note+'<p class="nt">Once the semantic model has loaded it judges whole phrases instead of these keywords (see Dashboard); the keyword lists are the fallback. With a Freesound key connected, real recordings play instead; the descriptions below are the built-in fallback.</p>'+`<p class="nt">${n==='music'?'The mood with the most recent trigger words wins, and the music crossfades to it.':'The scene with the most recent trigger words wins, and the ambience crossfades to it.'}</p>`+
       Object.keys(o).map(k=>row(NAMES[k],DESC[k],o[k].split(' '))).join('')}
   $('dt').textContent=t;$('db').innerHTML=h;$('dlg').showModal();
 }
